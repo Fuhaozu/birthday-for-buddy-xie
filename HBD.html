@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>生日快乐！Buddy Xie</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            height: 100vh;
+            background-color: #000;
+            font-family: 'Arial', sans-serif;
+        }
+
+        canvas {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+        }
+
+        #matrixRain {
+            z-index: 1;
+        }
+
+        #cakeCanvas {
+            z-index: 3; /* 提高层级，确保在烟花之上 */
+            opacity: 0; /* 初始隐藏 */
+            transition: opacity 1s ease-in-out;
+        }
+
+        #fireworksCanvas {
+            z-index: 2; /* 降低层级，确保在蛋糕之下 */
+        }
+
+        .chinese-text {
+            position: absolute;
+            top: 30%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            z-index: 4;
+            color: #FFFFFF;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.7);
+            font-size: 2.5vw;
+            font-weight: bold;
+            letter-spacing: 1px;
+            white-space: nowrap;
+            opacity: 0; /* 初始隐藏 */
+            transition: opacity 1s ease-in-out;
+        }
+
+        .birthday-text {
+            position: absolute;
+            top: 40%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            z-index: 4;
+            color: #FF69B4;
+            text-shadow: 0 0 10px rgba(255, 105, 180, 0.7);
+            font-size: 3.5vw;
+            font-weight: bold;
+            letter-spacing: 2px;
+            white-space: nowrap;
+            opacity: 0; /* 初始隐藏 */
+            transition: opacity 1s ease-in-out;
+        }
+
+        .debug-info {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            color: #00ff00;
+            padding: 10px;
+            font-family: monospace;
+            font-size: 12px;
+            z-index: 100;
+            border-radius: 5px;
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            .chinese-text {
+                font-size: 4vw;
+            }
+            .birthday-text {
+                font-size: 6vw;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 调试信息 -->
+    <div class="debug-info" id="debugInfo"></div>
+
+    <!-- 文字雨画布 -->
+    <canvas id="matrixRain"></canvas>
+
+    <!-- 蛋糕画布 -->
+    <canvas id="cakeCanvas"></canvas>
+
+    <!-- 中间生日文字 -->
+    <div class="chinese-text">生日快乐好兄弟！</div>
+    <div class="birthday-text">HAPPY BIRTHDAY BUDDY XIE</div>
+
+    <!-- 烟花画布 -->
+    <canvas id="fireworksCanvas"></canvas>
+
+    <script>
+        // 调试功能
+        const debugInfo = document.getElementById('debugInfo');
+        let debugLog = [];
+
+        function logDebug(message) {
+            debugLog.push(message);
+            if (debugLog.length > 10) debugLog.shift();
+            debugInfo.innerHTML = debugLog.join('<br>');
+            console.log('DEBUG:', message);
+        }
+
+        // 按F12显示调试信息
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'F12') {
+                debugInfo.style.display = debugInfo.style.display === 'none' ? 'block' : 'none';
+                e.preventDefault();
+            }
+        });
+
+        // 第一部分：矩阵文字雨效果
+        const matrixCanvas = document.getElementById('matrixRain');
+        const matrixCtx = matrixCanvas.getContext('2d');
+
+        // 设置画布尺寸
+        function setCanvasSize(canvas) {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+
+        setCanvasSize(matrixCanvas);
+
+        // 文字雨参数
+        const matrixChars = 'HAPPY BIRTHDAY BUDDY XIE';
+        const fontSize = Math.min(16, window.innerWidth / 20);
+        const columns = Math.floor(matrixCanvas.width / fontSize);
+        const drops = Array(columns).fill(1);
+        let currentCharIndex = 0;
+
+        // 绘制文字雨
+        function drawMatrixRain() {
+            // 半透明黑色背景，产生拖尾效果
+            matrixCtx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+            matrixCtx.fillRect(0, 0, matrixCanvas.width, matrixCanvas.height);
+
+            // 设置文字样式
+            matrixCtx.fillStyle = '#00FF00'; // 网球浅绿色
+            matrixCtx.font = `${fontSize}px Arial`;
+
+            // 绘制文字雨
+            for (let i = 0; i < drops.length; i++) {
+                if (drops[i] * fontSize > matrixCanvas.height || drops[i] === 1) {
+                    if (currentCharIndex >= matrixChars.length) {
+                        currentCharIndex = 0;
+                    }
+                    const char = matrixChars[currentCharIndex];
+                    matrixCtx.fillText(char, i * fontSize, drops[i] * fontSize);
+                    currentCharIndex++;
+                } else {
+                    const adjustedIndex = (currentCharIndex - (columns - i)) % matrixChars.length;
+                    const char = matrixChars[adjustedIndex >= 0 ? adjustedIndex : adjustedIndex + matrixChars.length];
+                    matrixCtx.fillText(char, i * fontSize, drops[i] * fontSize);
+                }
+
+                if (drops[i] * fontSize > matrixCanvas.height || Math.random() > 0.95) {
+                    drops[i] = 0;
+                }
+                drops[i] += 2; // 加快下落速度
+            }
+        }
+
+        // 启动文字雨动画（加快一倍）
+        const matrixInterval = setInterval(drawMatrixRain, 50);
+        logDebug('文字雨动画已启动');
+
+        // 第二部分：三个并列蛋糕图案
+        const cakeCanvas = document.getElementById('cakeCanvas');
+        const cakeCtx = cakeCanvas.getContext('2d');
+        setCanvasSize(cakeCanvas);
+
+        // 创建蛋糕图片对象
+        const cakeImage = new Image();
+        cakeImage.src = 'cake.png'; // 使用本地图片
+
+        // 图片加载状态
+        let cakeImageLoaded = false;
+        let cakeImageError = false;
+
+        // 图片加载成功
+        cakeImage.onload = function() {
+            cakeImageLoaded = true;
+            logDebug('蛋糕图片加载成功');
+            // 如果已经过了5秒，立即绘制蛋糕
+            if (Date.now() - pageStartTime > 5000) {
+                drawCakePattern();
+            }
+        };
+
+        // 图片加载失败
+        cakeImage.onerror = function() {
+            cakeImageError = true;
+            logDebug('蛋糕图片加载失败，使用备用方案');
+            // 如果图片加载失败，创建备用蛋糕图案
+            createFallbackCakeImage();
+        };
+
+        // 备用方案：创建简单的蛋糕图形
+        function createFallbackCakeImage() {
+            const tempCanvas = document.createElement('canvas');
+            const tempCtx = tempCanvas.getContext('2d');
+            tempCanvas.width = 150;
+            tempCanvas.height = 150;
+
+            // 绘制简单的蛋糕图形
+            tempCtx.fillStyle = '#FFB6C1'; // 浅粉色蛋糕体
+            tempCtx.fillRect(30, 45, 90, 75);
+
+            tempCtx.fillStyle = '#FFFFFF'; // 白色奶油
+            tempCtx.fillRect(22.5, 45, 105, 15);
+
+            tempCtx.fillStyle = '#DE3163'; // 深粉色底层
+            tempCtx.fillRect(15, 90, 120, 15);
+
+            tempCtx.fillStyle = '#FFD700'; // 金色蜡烛
+            tempCtx.fillRect(67.5, 15, 15, 30);
+
+            tempCtx.fillStyle = '#FF4500'; // 橙色火焰
+            tempCtx.beginPath();
+            tempCtx.arc(75, 12, 7.5, 0, Math.PI * 2);
+            tempCtx.fill();
+
+            // 将备用蛋糕图形设置为蛋糕图片
+            cakeImage.src = tempCanvas.toDataURL();
+            cakeImageLoaded = true;
+            logDebug('备用蛋糕图案已创建');
+        }
+
+        // 记录页面开始时间
+        const pageStartTime = Date.now();
+
+        // 绘制三个并列蛋糕图案
+        function drawCakePattern() {
+            if (!cakeImageLoaded) {
+                logDebug('蛋糕图片尚未加载，延迟绘制');
+                setTimeout(drawCakePattern, 100);
+                return;
+            }
+
+            cakeCtx.clearRect(0, 0, cakeCanvas.width, cakeCanvas.height);
+
+            // 计算三个蛋糕的位置
+            const centerX = cakeCanvas.width / 2;
+            const centerY = cakeCanvas.height * 0.65;
+            const cakeSize = Math.min(150, window.innerWidth / 5);
+            const spacing = cakeSize * 1.2; // 蛋糕之间的间距
+
+            logDebug(`绘制蛋糕: 位置(${centerX}, ${centerY}), 大小${cakeSize}`);
+
+            // 绘制三个并列的蛋糕
+            cakeCtx.drawImage(cakeImage, centerX - spacing - cakeSize/2, centerY - cakeSize/2, cakeSize, cakeSize);
+            cakeCtx.drawImage(cakeImage, centerX - cakeSize/2, centerY - cakeSize/2, cakeSize, cakeSize);
+            cakeCtx.drawImage(cakeImage, centerX + spacing - cakeSize/2, centerY - cakeSize/2, cakeSize, cakeSize);
+
+            logDebug('蛋糕图案绘制完成');
+        }
+
+        // 第三部分：烟花效果
+        const fireworksCanvas = document.getElementById('fireworksCanvas');
+        const fctx = fireworksCanvas.getContext('2d');
+        setCanvasSize(fireworksCanvas);
+
+        // 烟花参数
+        const gravity = 0.1;
+        const fireworks = [];
+        const particles = [];
+        const blessingParticles = [];
+
+        // 祝福语数组（按顺序出现）
+        const blessings = [
+            "生日快乐！",
+            "数据显著！",
+            "Paper全中！",
+            "论文能发！",
+            "肌肉变大！",
+            "关系亲密！",
+            "生活美好！",
+            "新一岁！新paper！",
+            "新一年！新ACE！",
+            "新一年，少敷衍！",
+            "好兄弟生日快乐！",
+            "文章发肌肉大",
+            "更多更大更开心",
+            "网球早日3.5"
+        ];
+
+        let currentBlessingIndex = 0;
+        let lastFireworkTime = 0;
+        let blessingActive = false;
+
+        // 烟花类
+        class Firework {
+            constructor(x, y, targetX, targetY, isBlessing = false) {
+                this.x = x;
+                this.y = y;
+                this.targetX = targetX;
+                this.targetY = targetY;
+                this.isBlessing = isBlessing;
+                this.distance = Math.hypot(targetX - x, targetY - y);
+                this.speed = 5 + Math.random() * 5;
+                this.angle = Math.atan2(targetY - y, targetX - x);
+                this.vx = Math.cos(this.angle) * this.speed;
+                this.vy = Math.sin(this.angle) * this.speed;
+                this.acceleration = 1.05;
+                this.brightness = 70 + Math.random() * 60;
+                this.trail = [];
+                this.exploded = false;
+            }
+
+            update() {
+                // 记录轨迹
+                this.trail.push([this.x, this.y]);
+                if (this.trail.length > 5) this.trail.shift();
+
+                // 更新位置
+                this.vx *= this.acceleration;
+                this.vy *= this.acceleration;
+                this.x += this.vx;
+                this.y += this.vy;
+
+                // 检查是否到达目标
+                if (Math.hypot(this.targetX - this.x, this.targetY - this.y) < 10) {
+                    this.explode();
+                }
+
+                // 绘制轨迹
+                this.draw();
+            }
+
+            explode() {
+                this.exploded = true;
+                const particleCount = this.isBlessing ? 150 : 80;
+                const colors = this.isBlessing ?
+                    ['#FF0000', '#00FF00', '#0000FF', '#FFFF00', '#FF00FF', '#00FFFF'] :
+                    ['#FF0000', '#00FF00', '#0000FF', '#FFFF00', '#FF00FF', '#00FFFF'];
+
+                // 创建爆炸粒子
+                for (let i = 0; i < particleCount; i++) {
+                    const angle = Math.random() * Math.PI * 2;
+                    const speed = Math.random() * 5 + 2;
+                    const vx = Math.cos(angle) * speed;
+                    const vy = Math.sin(angle) * speed;
+                    const color = colors[Math.floor(Math.random() * colors.length)];
+
+                    particles.push(new Particle(
+                        this.x,
+                        this.y,
+                        vx,
+                        vy,
+                        color,
+                        this.isBlessing
+                    ));
+                }
+
+                // 如果是祝福语烟花，创建祝福语粒子
+                if (this.isBlessing) {
+                    createBlessingParticles(this.x, this.y, blessings[currentBlessingIndex]);
+                    currentBlessingIndex = (currentBlessingIndex + 1) % blessings.length;
+                    blessingActive = true;
+                    lastFireworkTime = Date.now();
+
+                    setTimeout(() => {
+                        blessingActive = false;
+                    }, 3000);
+                }
+
+                // 从烟花数组中移除
+                const index = fireworks.indexOf(this);
+                if (index > -1) fireworks.splice(index, 1);
+            }
+
+            draw() {
+                fctx.beginPath();
+                fctx.moveTo(this.trail[0][0], this.trail[0][1]);
+
+                for (let i = 1; i < this.trail.length; i++) {
+                    fctx.lineTo(this.trail[i][0], this.trail[i][1]);
+                }
+
+                fctx.strokeStyle = `hsl(${Math.random() * 360}, 100%, ${this.brightness}%)`;
+                fctx.lineWidth = 2;
+                fctx.stroke();
+
+                fctx.beginPath();
+                fctx.arc(this.x, this.y, 3, 0, Math.PI * 2);
+                fctx.fillStyle = `hsl(${Math.random() * 360}, 100%, ${this.brightness}%)`;
+                fctx.fill();
+            }
+        }
+
+        // 粒子类
+        class Particle {
+            constructor(x, y, vx, vy, color, isBlessing = false) {
+                this.x = x;
+                this.y = y;
+                this.vx = vx;
+                this.vy = vy;
+                this.alpha = 1;
+                this.color = color;
+                this.size = isBlessing ? 3 : Math.random() * 2 + 1;
+                this.isBlessing = isBlessing;
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.vy += gravity;
+                this.vx *= 0.99;
+                this.vy *= 0.99;
+                this.alpha -= 0.01;
+            }
+
+            draw() {
+                fctx.save();
+                fctx.globalAlpha = this.alpha;
+                fctx.beginPath();
+                fctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                fctx.fillStyle = this.color;
+                fctx.fill();
+                fctx.restore();
+            }
+        }
+
+        // 祝福语粒子类
+        class BlessingParticle {
+            constructor(x, y, text) {
+                this.x = x;
+                this.y = y;
+                this.text = text;
+                this.alpha = 1;
+                this.vx = (Math.random() - 0.5) * 2;
+                this.vy = -Math.random() * 2 - 1;
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.vx *= 0.98;
+                this.alpha -= 0.005;
+            }
+
+            draw() {
+                if (this.alpha <= 0) return;
+
+                fctx.save();
+                fctx.globalAlpha = this.alpha;
+                fctx.font = 'bold 24px Arial';
+                fctx.fillStyle = '#FFFFFF';
+                fctx.textAlign = 'center';
+                fctx.fillText(this.text, this.x, this.y);
+                fctx.restore();
+            }
+        }
+
+        // 创建祝福语粒子
+        function createBlessingParticles(x, y, text) {
+            blessingParticles.push(new BlessingParticle(x, y, text));
+        }
+
+        // 创建烟花
+        function createFirework(isBlessing = false) {
+            const x = Math.random() * fireworksCanvas.width;
+            const y = fireworksCanvas.height;
+
+            let targetX, targetY;
+
+            if (isBlessing) {
+                // 祝福语烟花在屏幕中央偏上爆炸
+                targetX = fireworksCanvas.width / 2;
+                targetY = fireworksCanvas.height / 3;
+            } else {
+                // 普通烟花在随机位置爆炸
+                targetX = Math.random() * fireworksCanvas.width;
+                targetY = Math.random() * fireworksCanvas.height * 0.5;
+            }
+
+            fireworks.push(new Firework(x, y, targetX, targetY, isBlessing));
+        }
+
+        // 动画循环
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // 半透明黑色背景，产生拖尾效果
+            fctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+            fctx.fillRect(0, 0, fireworksCanvas.width, fireworksCanvas.height);
+
+            const currentTime = Date.now();
+
+            // 按顺序创建祝福语烟花（每3秒一个）
+            if (!blessingActive && currentTime - lastFireworkTime > 3000) {
+                createFirework(true);
+                lastFireworkTime = currentTime;
+            }
+
+            // 随机创建普通烟花，50%概率创建祝福语烟花
+            if (Math.random() < 0.05) {
+                // 50%概率创建祝福语烟花
+                if (Math.random() < 0.5) {
+                    createFirework(true);
+                } else {
+                    createFirework(false);
+                }
+            }
+
+            // 更新和绘制所有烟花
+            for (let i = fireworks.length - 1; i >= 0; i--) {
+                fireworks[i].update();
+            }
+
+            // 更新和绘制所有粒子
+            for (let i = particles.length - 1; i >= 0; i--) {
+                particles[i].update();
+                particles[i].draw();
+
+                if (particles[i].alpha <= 0) {
+                    particles.splice(i, 1);
+                }
+            }
+
+            // 更新和绘制祝福语粒子
+            for (let i = blessingParticles.length - 1; i >= 0; i--) {
+                blessingParticles[i].update();
+                blessingParticles[i].draw();
+
+                if (blessingParticles[i].alpha <= 0) {
+                    blessingParticles.splice(i, 1);
+                }
+            }
+        }
+
+        // 分阶段显示控制
+        setTimeout(() => {
+            // 第一阶段结束：停止文字雨
+            clearInterval(matrixInterval);
+            logDebug('文字雨已停止');
+
+            // 第二阶段开始：显示生日祝福文字和蛋糕
+            document.querySelector('.chinese-text').style.opacity = 1;
+            document.querySelector('.birthday-text').style.opacity = 1;
+            document.getElementById('cakeCanvas').style.opacity = 1;
+            logDebug('生日文字已显示');
+
+            // 绘制蛋糕图案
+            drawCakePattern();
+
+            // 第三阶段开始：启动烟花动画
+            animate();
+            logDebug('烟花动画已启动');
+
+            // 初始祝福语烟花
+            createFirework(true);
+        }, 5000); // 5秒后切换阶段
+
+        // 响应窗口大小变化
+        window.addEventListener('resize', () => {
+            setCanvasSize(matrixCanvas);
+            setCanvasSize(cakeCanvas);
+            setCanvasSize(fireworksCanvas);
+            drawCakePattern();
+        });
+
+        // 初始日志
+        logDebug('页面已加载，等待5秒后显示蛋糕');
+        logDebug('按F12显示/隐藏调试信息');
+    </script>
+</body>
+</html>
